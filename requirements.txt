@@ -12,5 +12,12 @@ iopath
 numpy>=1.19
 matplotlib
 types-regex
+vtk
 mayavi
 cartopy
+
+# custom imports
+ipykernel
+ipywidgets
+pandas
+easydict
