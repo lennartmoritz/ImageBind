@@ -21,3 +21,4 @@ ipykernel
 ipywidgets
 pandas
 easydict
+scikit-learn
