@@ -12,6 +12,7 @@ iopath
 numpy>=1.19
 matplotlib
 types-regex
+#vtk is for for mayavi
 vtk
 mayavi
 cartopy
@@ -22,3 +23,6 @@ ipywidgets
 pandas
 easydict
 scikit-learn
+# python version was 3.9.19
+# needs conda ffmpeg or torchaudio.set_audio_backend("soundfile")
+# SoundFile

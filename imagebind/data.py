@@ -113,6 +113,7 @@ def load_and_transform_text(text, device):
     return tokens
 
 
+torchaudio.set_audio_backend("soundfile")  # I added this to avoid errors without FFMPEG installation on system
 def load_and_transform_audio_data(
     audio_paths,
     device,
