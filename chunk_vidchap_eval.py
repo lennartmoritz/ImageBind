@@ -16,23 +16,39 @@ from chunk_vidchap_dataloader import VidChapters7M_Dataset, VidChapText_Dataset
 from master_metrics import compute_metrics
 
 
-def get_args_vidchap(fixed_length, chunking_mode):
-    assert isinstance(fixed_length, int)
+def get_args_vidchap(chunking_mode, fixed_length=None, model=None, fusion=None):
     assert chunking_mode in ["fixed", "recursive", "semantic"]
     # build args
-    args = {
-        "json_path": '/ltstorage/home/1moritz/storage/datasets/VidChapters-7M/chapters_dvc_test.json',
-        "video_folder": f'/ltstorage/home/1moritz/storage/datasets/VidChapters-7M/chunking/{chunking_mode}/{fixed_length}s/clips',
-        "audio_folder": f'/ltstorage/home/1moritz/storage/datasets/VidChapters-7M/chunking/{chunking_mode}/{fixed_length}s/audios',
-        "asr_folder": f'/ltstorage/home/1moritz/storage/datasets/VidChapters-7M/chunking/{chunking_mode}/{fixed_length}s/asr',
-        "summary_folder": f'/ltstorage/home/1moritz/storage/datasets/VidChapters-7M/chunking/{chunking_mode}/{fixed_length}s/summary_asr',
-        "report_folder": f'./reports/{chunking_mode}/{fixed_length}s',
-        "batch_size_val": 8,
-        "num_thread_reader": 1,
-        "cache_dir": '/ltstorage/home/1moritz/storage/models/languagebind/downloaded_weights',
-    }
+    if chunking_mode in ["fixed", "recursive"]:
+        assert isinstance(fixed_length, int)
+        args = {
+            "json_path": '/ltstorage/home/1moritz/storage/datasets/VidChapters-7M/chapters_dvc_test.json',
+            "video_folder": f'/ltstorage/home/1moritz/storage/datasets/VidChapters-7M/chunking/{chunking_mode}/{fixed_length}s/clips',
+            "audio_folder": f'/ltstorage/home/1moritz/storage/datasets/VidChapters-7M/chunking/{chunking_mode}/{fixed_length}s/audios',
+            "asr_folder": f'/ltstorage/home/1moritz/storage/datasets/VidChapters-7M/chunking/{chunking_mode}/{fixed_length}s/asr',
+            "summary_folder": f'/ltstorage/home/1moritz/storage/datasets/VidChapters-7M/chunking/{chunking_mode}/{fixed_length}s/summary_asr',
+            "report_folder": f'./reports/{chunking_mode}/{fixed_length}s',
+            "batch_size_val": 8,
+            "num_thread_reader": 1,
+            "cache_dir": '/ltstorage/home/1moritz/storage/models/languagebind/downloaded_weights',
+        }
+    elif chunking_mode == "semantic":
+        assert model in ["imagebind", "languagebind"]
+        assert fusion in ["average", "concatenate"]
+        args = {
+            "json_path": '/ltstorage/home/1moritz/storage/datasets/VidChapters-7M/chapters_dvc_test.json',
+            "video_folder": f'/ltstorage/home/1moritz/storage/datasets/VidChapters-7M/chunking/{chunking_mode}/{model}/{fusion}/clips',
+            "audio_folder": f'/ltstorage/home/1moritz/storage/datasets/VidChapters-7M/chunking/{chunking_mode}/{model}/{fusion}/audios',
+            "asr_folder": f'/ltstorage/home/1moritz/storage/datasets/VidChapters-7M/chunking/{chunking_mode}/{model}/{fusion}/asr',
+            "summary_folder": f'/ltstorage/home/1moritz/storage/datasets/VidChapters-7M/chunking/{chunking_mode}/{model}/{fusion}/summary_asr',
+            "report_folder": f'./reports/{chunking_mode}/{model}/{fusion}',
+            "batch_size_val": 8,
+            "num_thread_reader": 1,
+            "cache_dir": '/ltstorage/home/1moritz/storage/models/languagebind/downloaded_weights',
+        }
     args = EasyDict(args)
     return args
+
 
 def run_eval(
         model: imagebind_model.ImageBindModel,
@@ -60,7 +76,7 @@ def run_eval(
         if not isinstance(summaries, list):
             summaries = list(summaries)
 
-        # Re-create sentence_ids and chunk_ids as tuples, since tuples were broken apart into 
+        # Re-create sentence_ids and chunk_ids as tuples, since tuples were broken apart into
         # two batch sized lists containing only the first or second parts of the identifiers
         assert len(sentence_ids) == 2
         sentence_ids = [identifier for identifier in zip(sentence_ids[0], sentence_ids[1].tolist())]
@@ -78,7 +94,7 @@ def run_eval(
         summary_inputs = {
             ModalityType.TEXT: data.load_and_transform_text(summaries, device),
         }
-        
+
         with torch.no_grad():
             embeddings = model(inputs)
             asr_embeddings = model(asr_inputs)
@@ -107,7 +123,7 @@ def run_eval(
         if not isinstance(sentences, list):
             sentences = list(sentences)
 
-        # Re-create sentence_ids and chunk_ids as tuples, since tuples were broken apart into 
+        # Re-create sentence_ids and chunk_ids as tuples, since tuples were broken apart into
         # two batch sized lists containing only the first or second parts of the identifiers
         assert len(sentence_ids) == 2
         sentence_ids = [identifier for identifier in zip(sentence_ids[0], sentence_ids[1].tolist())]
@@ -139,10 +155,10 @@ def run_eval(
     print(f"VidChapters sim matrix size: {sim_matrix.shape[0]}, {sim_matrix.shape[1]}")
     tv_metrics = compute_metrics(sim_matrix, sc_true_matches)
     vt_metrics = compute_metrics(sim_matrix.T, cs_true_matches)
-    print(f"VidChapters Text-to-Video:")
+    print("VidChapters Text-to-Video:")
     print('\t>>>  R@1: {:.1f} - R@5: {:.1f} - R@10: {:.1f} - Median R: {:.1f} - Mean R: {:.1f} - mAP: {:.2f}'.
                 format(tv_metrics['R1'], tv_metrics['R5'], tv_metrics['R10'], tv_metrics['MR'], tv_metrics['MeanR'], tv_metrics['mAP']))
-    print(f"VidChapters Video-to-Text:")
+    print("VidChapters Video-to-Text:")
     print('\t>>>  V2T$R@1: {:.1f} - V2T$R@5: {:.1f} - V2T$R@10: {:.1f} - V2T$Median R: {:.1f} - V2T$Mean R: {:.1f} - V2T$mAP: {:.2f}'.
                 format(vt_metrics['R1'], vt_metrics['R5'], vt_metrics['R10'], vt_metrics['MR'], vt_metrics['MeanR'], vt_metrics['mAP']))
 
@@ -151,10 +167,10 @@ def run_eval(
     print(f"VidChapters sim matrix size: {sim_matrix.shape[0]}, {sim_matrix.shape[1]}")
     ta_metrics = compute_metrics(sim_matrix, sc_true_matches)
     at_metrics = compute_metrics(sim_matrix.T, cs_true_matches)
-    print(f"VidChapters Text-to-Audio:")
+    print("VidChapters Text-to-Audio:")
     print('\t>>>  R@1: {:.1f} - R@5: {:.1f} - R@10: {:.1f} - Median R: {:.1f} - Mean R: {:.1f} - mAP: {:.2f}'.
                 format(ta_metrics['R1'], ta_metrics['R5'], ta_metrics['R10'], ta_metrics['MR'], ta_metrics['MeanR'], ta_metrics['mAP']))
-    print(f"VidChapters Audio-to-Text:")
+    print("VidChapters Audio-to-Text:")
     print('\t>>>  A2T$R@1: {:.1f} - A2T$R@5: {:.1f} - A2T$R@10: {:.1f} - A2T$Median R: {:.1f} - A2T$Mean R: {:.1f} - A2T$mAP: {:.2f}'.
                 format(at_metrics['R1'], at_metrics['R5'], at_metrics['R10'], at_metrics['MR'], at_metrics['MeanR'], at_metrics['mAP']))
 
@@ -163,10 +179,10 @@ def run_eval(
     print(f"VidChapters sim matrix size: {sim_matrix.shape[0]}, {sim_matrix.shape[1]}")
     av_metrics = compute_metrics(sim_matrix, np.arange(sim_matrix.shape[0]).reshape(-1, 1))
     va_metrics = compute_metrics(sim_matrix.T, np.arange(sim_matrix.T.shape[0]).reshape(-1, 1))
-    print(f"VidChapters Audio-to-Video:")
+    print("VidChapters Audio-to-Video:")
     print('\t>>>  R@1: {:.1f} - R@5: {:.1f} - R@10: {:.1f} - Median R: {:.1f} - Mean R: {:.1f} - mAP: {:.2f}'.
                 format(av_metrics['R1'], av_metrics['R5'], av_metrics['R10'], av_metrics['MR'], av_metrics['MeanR'], av_metrics['mAP']))
-    print(f"VidChapters Video-to-Audio:")
+    print("VidChapters Video-to-Audio:")
     print('\t>>>  V2A$R@1: {:.1f} - V2A$R@5: {:.1f} - V2A$R@10: {:.1f} - V2A$Median R: {:.1f} - V2A$Mean R: {:.1f} - V2A$mAP: {:.2f}'.
                 format(va_metrics['R1'], va_metrics['R5'], va_metrics['R10'], va_metrics['MR'], va_metrics['MeanR'], va_metrics['mAP']))
 
@@ -175,10 +191,10 @@ def run_eval(
     print(f"VidChapters sim matrix size: {sim_matrix.shape[0]}, {sim_matrix.shape[1]}")
     tasr_metrics = compute_metrics(sim_matrix, sc_true_matches)
     asrt_metrics = compute_metrics(sim_matrix.T, cs_true_matches)
-    print(f"VidChapters Text-to-ASR:")
+    print("VidChapters Text-to-ASR:")
     print('\t>>>  R@1: {:.1f} - R@5: {:.1f} - R@10: {:.1f} - Median R: {:.1f} - Mean R: {:.1f} - mAP: {:.2f}'.
                 format(tasr_metrics['R1'], tasr_metrics['R5'], tasr_metrics['R10'], tasr_metrics['MR'], tasr_metrics['MeanR'], tasr_metrics['mAP']))
-    print(f"VidChapters ASR-to-Text:")
+    print("VidChapters ASR-to-Text:")
     print('\t>>>  Asr2T$R@1: {:.1f} - Asr2T$R@5: {:.1f} - Asr2T$R@10: {:.1f} - Asr2T$Median R: {:.1f} - Asr2T$Mean R: {:.1f} - Asr2T$mAP: {:.2f}'.
                 format(asrt_metrics['R1'], asrt_metrics['R5'], asrt_metrics['R10'], asrt_metrics['MR'], asrt_metrics['MeanR'], asrt_metrics['mAP']))
 
@@ -187,10 +203,10 @@ def run_eval(
     print(f"VidChapters sim matrix size: {sim_matrix.shape[0]}, {sim_matrix.shape[1]}")
     asrv_metrics = compute_metrics(sim_matrix, np.arange(sim_matrix.shape[0]).reshape(-1, 1))
     vasr_metrics = compute_metrics(sim_matrix.T, np.arange(sim_matrix.T.shape[0]).reshape(-1, 1))
-    print(f"VidChapters ASR-to-Video:")
+    print("VidChapters ASR-to-Video:")
     print('\t>>>  R@1: {:.1f} - R@5: {:.1f} - R@10: {:.1f} - Median R: {:.1f} - Mean R: {:.1f} - mAP: {:.2f}'.
                 format(asrv_metrics['R1'], asrv_metrics['R5'], asrv_metrics['R10'], asrv_metrics['MR'], asrv_metrics['MeanR'], asrv_metrics['mAP']))
-    print(f"VidChapters Video-to-ASR:")
+    print("VidChapters Video-to-ASR:")
     print('\t>>>  V2Asr$R@1: {:.1f} - V2Asr$R@5: {:.1f} - V2Asr$R@10: {:.1f} - V2Asr$Median R: {:.1f} - V2Asr$Mean R: {:.1f} - V2Asr$mAP: {:.2f}'.
                 format(vasr_metrics['R1'], vasr_metrics['R5'], vasr_metrics['R10'], vasr_metrics['MR'], vasr_metrics['MeanR'], vasr_metrics['mAP']))
 
@@ -199,10 +215,10 @@ def run_eval(
     print(f"VidChapters sim matrix size: {sim_matrix.shape[0]}, {sim_matrix.shape[1]}")
     ts_metrics = compute_metrics(sim_matrix, sc_true_matches)
     st_metrics = compute_metrics(sim_matrix.T, cs_true_matches)
-    print(f"VidChapters Text-to-Summary_ASR:")
+    print("VidChapters Text-to-Summary_ASR:")
     print('\t>>>  R@1: {:.1f} - R@5: {:.1f} - R@10: {:.1f} - Median R: {:.1f} - Mean R: {:.1f} - mAP: {:.2f}'.
                 format(ts_metrics['R1'], ts_metrics['R5'], ts_metrics['R10'], ts_metrics['MR'], ts_metrics['MeanR'], ts_metrics['mAP']))
-    print(f"VidChapters Summary_ASR-to-Text:")
+    print("VidChapters Summary_ASR-to-Text:")
     print('\t>>>  Sum2T$R@1: {:.1f} - Sum2T$R@5: {:.1f} - Sum2T$R@10: {:.1f} - Sum2T$Median R: {:.1f} - Sum2T$Mean R: {:.1f} - Sum2T$mAP: {:.2f}'.
                 format(st_metrics['R1'], st_metrics['R5'], st_metrics['R10'], st_metrics['MR'], st_metrics['MeanR'], st_metrics['mAP']))
 
@@ -211,10 +227,10 @@ def run_eval(
     print(f"VidChapters sim matrix size: {sim_matrix.shape[0]}, {sim_matrix.shape[1]}")
     sv_metrics = compute_metrics(sim_matrix, np.arange(sim_matrix.shape[0]).reshape(-1, 1))
     vs_metrics = compute_metrics(sim_matrix.T, np.arange(sim_matrix.T.shape[0]).reshape(-1, 1))
-    print(f"VidChapters Summary_ASR-to-Video:")
+    print("VidChapters Summary_ASR-to-Video:")
     print('\t>>>  R@1: {:.1f} - R@5: {:.1f} - R@10: {:.1f} - Median R: {:.1f} - Mean R: {:.1f} - mAP: {:.2f}'.
                 format(sv_metrics['R1'], sv_metrics['R5'], sv_metrics['R10'], sv_metrics['MR'], sv_metrics['MeanR'], sv_metrics['mAP']))
-    print(f"VidChapters Video-to-Summary_ASR:")
+    print("VidChapters Video-to-Summary_ASR:")
     print('\t>>>  V2Sum$R@1: {:.1f} - V2Sum$R@5: {:.1f} - V2Sum$R@10: {:.1f} - V2Sum$Median R: {:.1f} - V2Sum$Mean R: {:.1f} - V2Sum$mAP: {:.2f}'.
                 format(vs_metrics['R1'], vs_metrics['R5'], vs_metrics['R10'], vs_metrics['MR'], vs_metrics['MeanR'], vs_metrics['mAP']))
 
@@ -241,6 +257,7 @@ def run_eval(
     with open(osp.join(report_folder, f"report_eval_{current_time}.json"), "w") as outfile:
         outfile.write(json_report)
 
+
 def create_sim_matrix(batch_sentences_embeddings, batch_videos_embeddings):
     """Calculate embedding vector product for similarity and download result to CPU
 
@@ -260,6 +277,7 @@ def create_sim_matrix(batch_sentences_embeddings, batch_videos_embeddings):
         sim_matrix.append(each_row)
     sim_matrix = np.concatenate(tuple(sim_matrix), axis=0)
     return sim_matrix
+
 
 def create_match_matrix(own_query_ids, target_samples_ids, own_samples_ids, target_query_ids):
     """
@@ -282,6 +300,7 @@ def create_match_matrix(own_query_ids, target_samples_ids, own_samples_ids, targ
         assert len(current_matches) >= 1
         true_matches.append(current_matches)
     return true_matches
+
 
 def main(args):
     assert torch.cuda.is_available()
@@ -321,11 +340,18 @@ if __name__ == '__main__':
     c_mode = "fixed"
     for length in lengths[3:]:
         print(f"Start eval: Length = {length}s, Chunking = {c_mode}")
-        arguments = get_args_vidchap(fixed_length=length, chunking_mode=c_mode)
+        arguments = get_args_vidchap(chunking_mode=c_mode, fixed_length=length)
         main(args=arguments)
 
     c_mode = "recursive"
     for length in lengths:
         print(f"Start eval: Length = {length}s, Chunking = {c_mode}")
-        arguments = get_args_vidchap(fixed_length=length, chunking_mode=c_mode)
+        arguments = get_args_vidchap(chunking_mode=c_mode, fixed_length=length)
+        main(args=arguments)
+
+    c_mode = "semantic"
+    f_modes = ["average", "concatenate"]
+    for f_mode in f_modes:
+        print(f"Start eval: Fusion = {f_mode}, Chunking = {c_mode}")
+        arguments = get_args_vidchap(chunking_mode=c_mode, model="imagebind", fusion=f_mode)
         main(args=arguments)
