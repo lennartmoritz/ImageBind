@@ -1,5 +1,5 @@
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = '4'
+os.environ['CUDA_VISIBLE_DEVICES'] = '2'
 
 import numpy as np
 from easydict import EasyDict
@@ -34,7 +34,7 @@ def get_args_vidchap(chunking_mode, fixed_length=None, model=None, fusion=None):
         }
     elif chunking_mode == "semantic":
         assert model in ["imagebind", "languagebind"]
-        assert fusion in ["average", "concatenate"]
+        assert fusion in ["average", "concatenate", "asr_only", "frame_only"]
         args = {
             "json_path": '/ltstorage/home/1moritz/storage/datasets/VidChapters-7M/chapters_dvc_test.json',
             "video_folder": f'/ltstorage/home/1moritz/storage/datasets/VidChapters-7M/chunking/{chunking_mode}/{model}/{fusion}/clips',
@@ -336,22 +336,22 @@ def main(args):
 
 
 if __name__ == '__main__':
-    lengths = [15, 25, 50, 100, 150]
-    c_mode = "fixed"
-    for length in lengths[3:]:
-        print(f"Start eval: Length = {length}s, Chunking = {c_mode}")
-        arguments = get_args_vidchap(chunking_mode=c_mode, fixed_length=length)
-        main(args=arguments)
+    # lengths = [15, 25, 50, 100, 150]
+    # c_mode = "fixed"
+    # for length in lengths[3:]:
+    #     print(f"Start eval: Length = {length}s, Chunking = {c_mode}")
+    #     arguments = get_args_vidchap(chunking_mode=c_mode, fixed_length=length)
+    #     main(args=arguments)
 
-    c_mode = "recursive"
-    for length in lengths:
-        print(f"Start eval: Length = {length}s, Chunking = {c_mode}")
-        arguments = get_args_vidchap(chunking_mode=c_mode, fixed_length=length)
-        main(args=arguments)
+    # c_mode = "recursive"
+    # for length in lengths:
+    #     print(f"Start eval: Length = {length}s, Chunking = {c_mode}")
+    #     arguments = get_args_vidchap(chunking_mode=c_mode, fixed_length=length)
+    #     main(args=arguments)
 
     c_mode = "semantic"
-    f_modes = ["average", "concatenate"]
-    for f_mode in f_modes:
+    f_modes = ["average", "concatenate", "asr_only", "frame_only"]
+    for f_mode in f_modes[2:]:
         print(f"Start eval: Fusion = {f_mode}, Chunking = {c_mode}")
         arguments = get_args_vidchap(chunking_mode=c_mode, model="imagebind", fusion=f_mode)
         main(args=arguments)
